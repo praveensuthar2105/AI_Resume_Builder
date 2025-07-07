@@ -1,11 +1,9 @@
 package com.resume_builder_backend.Resume_Builder_ai.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.json.JSONObject;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.scheduling.support.SimpleTriggerContext;
 import org.springframework.stereotype.Service;
 //import org.json.JSONObject;
 
@@ -20,22 +18,22 @@ import java.util.Map;
 @Service
 public class ResumeServiceImpl  implements ResumeService {
 	
-	private ChatClient chatClient;
+	private final ChatClient chatClient;
 	
 	public ResumeServiceImpl(ChatClient.Builder builder) {
 		this.chatClient = builder.build();
 	}
 	
 	@Override
-	public String generateResumeResponse(String userResumeDescription) throws IOException {
+	public Map<String, Object> generateResumeResponse(String userResumeDescription) throws IOException {
 		
 		String promptString = this.loadPromptFromFile("resume_prompt.txt");
 		String promptContent = this.putValueToTemplate(promptString, Map.of("userResumeDescription", userResumeDescription));
 		Prompt prompt = new Prompt(promptContent);
 		String response = chatClient.prompt(prompt).call().content();
 		
-		JSONObject jsonObject = parseMultipleResponses(response);
-		return response;
+		  Map<String , Object> stringMap =  parseMultipleResponses(response);
+		return stringMap;
 		
 	}
 	
@@ -51,32 +49,32 @@ public class ResumeServiceImpl  implements ResumeService {
 		return template;
 	}
 	
-	public static JSONObject parseMultipleResponses(String response) {
-		JSONObject jsonResponse = new JSONObject();
-		
+	public static Map<String, Object> parseMultipleResponses(String response) {
+		Map<String, Object> result = new HashMap<>();
 		int thinkStart = response.indexOf("<think>") + 7;
 		int thinkEnd = response.indexOf("</think>");
 		if (thinkStart != -1 && thinkEnd != -1) {
 			String thinkContent = response.substring(thinkStart, thinkEnd).trim();
-			jsonResponse.put("think", thinkContent);
+			result.put("think", thinkContent);
 		} else {
-			jsonResponse.put("think", JSONObject.NULL);
+			result.put("think", null);
 		}
 		
 		int jsonStart = response.indexOf("```json") + 7;
-		int jsonEnd = response.indexOf("```");
+		int jsonEnd = response.indexOf("```", jsonStart);
 		if (jsonStart != -1 && jsonEnd != -1 && jsonEnd > jsonStart) {
 			String jsonContent = response.substring(jsonStart, jsonEnd).trim();
-			
 			try {
-				JSONObject jsonObject = new JSONObject(jsonContent);
-				jsonResponse.put("data", jsonObject);
+				ObjectMapper mapper = new ObjectMapper();
+				Map data = mapper.readValue(jsonContent, Map.class);
+				result.put("data", data);
 			} catch (Exception e) {
-				System.err.println("Invaild Json format" + e.getMessage());
+				System.err.println("Invalid Json format: " + e.getMessage());
+				result.put("data", null);
 			}
 		} else {
-			jsonResponse.put("data", JSONObject.NULL);
+			result.put("data", null);
 		}
-		return jsonResponse;
+		return result;
 	}
 }

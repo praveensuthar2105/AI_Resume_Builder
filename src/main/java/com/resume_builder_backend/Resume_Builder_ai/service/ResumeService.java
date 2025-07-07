@@ -5,6 +5,6 @@ import java.util.Map;
 
 public interface ResumeService {
 	
-	String generateResumeResponse(String userResumeDescription) throws IOException;
+	Map<String, Object> generateResumeResponse(String userResumeDescription) throws IOException;
 	
 }
